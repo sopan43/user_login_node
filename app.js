@@ -1,17 +1,33 @@
-var express = require('express');
+/************************************************************************************************************************************
+ *                                                                                                                                  *
+ *                                                       NPM Library                                                                *
+ *                                                                                                                                  *
+ ************************************************************************************************************************************/
 var bodyParser = require('body-parser');
-var _ = require('underscore');
-var passwordHash = require('password-hash');
-var mysql = require('mysql2');
-var validator = require("email-validator");
 var cryptojs = require('crypto-js');
+var validator = require("email-validator");
+var express = require('express');
+var basicAuth = require('express-basic-auth')
 var jwt = require('jsonwebtoken');
+var _ = require('underscore');
+var mysql = require('mysql');
+var passwordHash = require('password-hash');
+
+/************************************************************************************************************************************
+ *                                                                                                                                  *
+ *                                                       Miscellaneous                                                              *
+ *                                                                                                                                  *
+ ************************************************************************************************************************************/
 
 var users = [];
 var app = express();
 var PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
+
+app.use(basicAuth({
+    users: { 'admin': 'supersecret' }
+}));
 
 app.get('/', function(req, res) {
     res.send('Users API Root');
@@ -182,51 +198,18 @@ app.post('/register', function(req, res) {
 });
 /************************************************************************************************************************************
  *                                                                                                                                  *
- *                                                  PUT(Update) Todos Items by Id                                                   *
+ *                                                  PUT update user profile                                                         *
  *                                                                                                                                  *
  ************************************************************************************************************************************/
-// app.put('/update', function(req, res) {
-
-//     var todoId = parseInt(req.params.id, 10);
-//     var matchedTodo = _.findWhere(todos, {
-//         id: todoId
-//     });
-//     var body = _.pick(req.body, 'description', 'completed');
-//     var validAttribute = {};
-
-//     if (!matchedTodo) {
-//         return res.status(404).json({
-//             "error": "No todo item found with id " + todoId
-//         });
-//     }
-//     /************************************checking for completed property************************************/
-//     if (body.hasOwnProperty('password') && _.isBoolean(body.password)) {
-//         validAttribute.completed = body.completed;
-//     } else if (body.hasOwnProperty('completed')) {
-//         return res.status(400).send();
-//     }
-
-//     /************************************checking for description property************************************/
-//     if (body.hasOwnProperty('description') && _.isString(body.description) && body.description.trim().length > 0) {
-//         validAttribute.description = body.description.trim();
-//     } else if (body.hasOwnProperty('description')) {
-//         return res.status(400).send();
-//     }
-
-//     _.extend(matchedTodo, validAttribute);
-//     res.json(matchedTodo);
-// });
-
-
 
 app.put('/update_user_profile', function(req, res) {
     var body = _.pick(req.body, 'email', 'name', 'city', 'country', 'longitude', 'lat');
     if (body.email.trim().length === 0 || !validator.validate(body.email.trim())) {
         return res.status(400).send();
     }
-    
+
     var findEmail = body.email.trim();
-    var  city, country, longitude, lat;
+    var city, country, longitude, lat;
 
     return new Promise(function(resolve, rej) {
 
@@ -235,14 +218,14 @@ app.put('/update_user_profile', function(req, res) {
             if (rows.length === 0) {
                 return res.status(406).json('No email found');
             } else {
-                password = rows[0].password;
-                city = rows[0].city;
-                country = rows[0].country;
-                longitude = rows[0].lon;
-                lat = rows[0].lat;
+                // password = rows[0].password;
+                // city = rows[0].city;
+                // country = rows[0].country;
+                // longitude = rows[0].lon;
+                // lat = rows[0].lat;
 
 
-                
+
                 if (body.hasOwnProperty('city') && _.isString(city)) {
                     city = body.city.trim();
                 }
@@ -258,15 +241,15 @@ app.put('/update_user_profile', function(req, res) {
                 }
 
 
-               
+
                 body.city = city;
                 body.country = country;
                 body.longitude = longitude;
                 body.lat = lat;
 
-   
 
-                con.query('UPDATE users SET city = ?, country = ?, lon =?, lat = ? WHERE email = ?', [ body.city, body.country, body.longitude, body.lat, findEmail], (err, res) => {
+
+                con.query('UPDATE users SET city = ?, country = ?, lon =?, lat = ? WHERE email = ?', [body.city, body.country, body.longitude, body.lat, findEmail], (err, res) => {
                     if (err) { throw (err) } else {
                         resolve();
                     }
