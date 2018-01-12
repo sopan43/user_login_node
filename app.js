@@ -72,9 +72,6 @@ app.get('/users', function(req, res) {
 
 });
 
-
-
-
 /************************************************************************************************************************************
  *                                                                                                                                  *
  *                                                  POST user login                                                                 *
@@ -107,7 +104,7 @@ app.post('/login', function(req, res) {
                     rej(400);
                 } else {
                     if (passwordHash.verify(body.password.trim(), rows[0].password)) {
-                        token = genrateToken('authentication', rows[0].email)
+                        token = genrateToken('authentication', rows[0].email)            //genrateToken() function is defined at botton
                         if (!token) {
                             rej(401);
                         }
@@ -203,7 +200,7 @@ app.post('/register', function(req, res) {
  ************************************************************************************************************************************/
 
 app.put('/update_user_profile', function(req, res) {
-    var body = _.pick(req.body, 'email', 'name', 'city', 'country', 'longitude', 'lat');
+    var body = _.pick(req.body, 'email', 'name', 'city', 'country', 'lon', 'lat');
     if (body.email.trim().length === 0 || !validator.validate(body.email.trim())) {
         return res.status(400).send();
     }
@@ -218,38 +215,45 @@ app.put('/update_user_profile', function(req, res) {
             if (rows.length === 0) {
                 return res.status(406).json('No email found');
             } else {
+
+ _.defaults(body, {
+        name: rows[0].name,
+        city: rows[0].city,
+        country: rows[0].country,
+        lon: rows[0].lon,
+        lat: rows[0].lat
+    });
+
                 // password = rows[0].password;
                 // city = rows[0].city;
                 // country = rows[0].country;
                 // longitude = rows[0].lon;
                 // lat = rows[0].lat;
 
-
-
-                if (body.hasOwnProperty('city') && _.isString(city)) {
-                    city = body.city.trim();
-                }
-                if (body.hasOwnProperty('country') && _.isString(country)) {
-                    country = body.country.trim();
-                }
-                if (body.hasOwnProperty('longitude') && _.isString(longitude)) {
-                    longitude = body.longitude.trim();
-                    console.log('vrvb');
-                }
-                if (body.hasOwnProperty('lat') && _.isString(lat)) {
-                    lat = body.lat.trim();
-                }
-
-
-
-                body.city = city;
-                body.country = country;
-                body.longitude = longitude;
-                body.lat = lat;
+                // if (body.hasOwnProperty('city') && _.isString(city)) {
+                //     city = body.city.trim();
+                // }
+                // if (body.hasOwnProperty('country') && _.isString(country)) {
+                //     country = body.country.trim();
+                // }
+                // if (body.hasOwnProperty('longitude') && _.isString(longitude)) {
+                //     longitude = body.longitude.trim();
+                //     console.log('vrvb');
+                // }
+                // if (body.hasOwnProperty('lat') && _.isString(lat)) {
+                //     lat = body.lat.trim();
+                // }
 
 
 
-                con.query('UPDATE users SET city = ?, country = ?, lon =?, lat = ? WHERE email = ?', [body.city, body.country, body.longitude, body.lat, findEmail], (err, res) => {
+                // body.city = city;
+                // body.country = country;
+                // body.longitude = longitude;
+                // body.lat = lat;
+
+
+
+                con.query('UPDATE users SET name = ?, city = ?, country = ?, lon =?, lat = ? WHERE email = ?', [body.name, body.city, body.country, body.lon, body.lat, findEmail], (err, res) => {
                     if (err) { throw (err) } else {
                         resolve();
                     }
