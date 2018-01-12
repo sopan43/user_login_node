@@ -4,6 +4,9 @@ var _ = require('underscore');
 var passwordHash = require('password-hash');
 var mysql = require('mysql');
 var validator = require("email-validator");
+var cryptojs = require('crypto-js');
+var jwt = require('jsonwebtoken');
+
 var users = [];
 var app = express();
 var PORT = process.env.PORT || 3000;
@@ -54,53 +57,6 @@ app.get('/users', function(req, res) {
 });
 
 
-/************************************************************************************************************************************
- *																																	*
- *													GET user login																	*
- *																																	*
- ************************************************************************************************************************************/
-
-app.get('/login', function(req, res) {
-    var queryParams = req.query;
-
-    return new Promise(function(resolve, rej) {
-
-
-
-        if (queryParams.hasOwnProperty('email') && queryParams.email.trim().length > 0 &&
-            queryParams.hasOwnProperty('pass') && queryParams.pass.trim().length > 0) {
-
-            con.query('SELECT * FROM users WHERE email = ?', [queryParams.email], (err, rows, fields) => {
-                if (err) {
-                    rej(400);
-                } //throw err;
-
-                if (rows.length === 0) {
-                    rej(400);
-                } else {
-                    if (passwordHash.verify(queryParams.pass, rows[0].password)) {
-                        resolve((rows));
-                    } else if (!passwordHash.verify(queryParams.pass, rows[0].password)) {
-                        rej(401);
-                    } else {
-                        rej(404);
-                    }
-                }
-
-            });
-
-        } else {
-            rej(404);
-        }
-    }).then(function(data) {
-
-        return res.json((data));
-    }, function(error) {
-
-        return res.status(error).send();
-    });
-
-});
 
 
 /************************************************************************************************************************************
@@ -110,12 +66,15 @@ app.get('/login', function(req, res) {
  ************************************************************************************************************************************/
 
 app.post('/login', function(req, res) {
-    // var queryParams = req.query;
+   
     var body = _.pick(req.body, 'email', 'password');
     _.defaults(body, {
         email: ' ',
         password: ' '
     });
+
+    var email;
+
     return new Promise(function(resolve, rej) {
 
         if (body.email.trim().length === 0 || body.password.trim().length === 0 || !validator.validate(body.email.trim())) {
@@ -133,6 +92,7 @@ app.post('/login', function(req, res) {
                     rej(400);
                 } else {
                     if (passwordHash.verify(body.password.trim(), rows[0].password)) {
+                    	email = rows[0].email;
                         resolve((rows));
                     } else if (!passwordHash.verify(body.password.trim(), rows[0].password)) {
                         rej(401);
@@ -147,7 +107,7 @@ app.post('/login', function(req, res) {
 
     }).then(function(data) {
 
-        return res.json((data));
+        return res.header('Auth', genrateToken('authentication',email)).json((data));
     }, function(error) {
 
         return res.status(error).send();
@@ -203,11 +163,6 @@ app.post('/register', function(req, res) {
                         resolve();
                     }
                 });
-
-
-
-
-
             }
 
         });
@@ -224,8 +179,6 @@ app.post('/register', function(req, res) {
 
 });
 
-
-
 /************************************************************************************************************************************
  *																																	*
  *													Starting server																	*
@@ -235,6 +188,30 @@ var server = app.listen(PORT, function() {
     console.log('Express listening on port ' + PORT + '!');
 });
 server.timeout = 2500;
+
+/************************************************************************************************************************************
+ *																																	*
+ *													Genrate Token Function															*
+ *																																	*
+ ************************************************************************************************************************************/
+
+function genrateToken(type,id) {
+    if (!_.isString(type)) {
+        return undefined;
+    }
+
+    try {
+        var stringData = JSON.stringify({ id: id, type: type });
+        var encryptedData = cryptojs.AES.encrypt(stringData, 'abc123@1223').toString();
+        var token = jwt.sign({
+            token: encryptedData
+        }, 'qwerty12345');
+        return token;
+    } catch (e) {
+    	console.log(e);
+        return undefined;
+    }
+}
 
 /************************************************************************************************************************************
  *																																	*
