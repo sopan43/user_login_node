@@ -66,7 +66,7 @@ app.get('/users', function(req, res) {
  ************************************************************************************************************************************/
 
 app.post('/login', function(req, res) {
-   
+
     var body = _.pick(req.body, 'email', 'password');
     _.defaults(body, {
         email: ' ',
@@ -74,6 +74,7 @@ app.post('/login', function(req, res) {
     });
 
     var email;
+    var token = undefined;
 
     return new Promise(function(resolve, rej) {
 
@@ -92,7 +93,10 @@ app.post('/login', function(req, res) {
                     rej(400);
                 } else {
                     if (passwordHash.verify(body.password.trim(), rows[0].password)) {
-                    	email = rows[0].email;
+                        token = genrateToken('authentication', rows[0].email)
+                        if (!token) {
+                            rej(401);
+                        }
                         resolve((rows));
                     } else if (!passwordHash.verify(body.password.trim(), rows[0].password)) {
                         rej(401);
@@ -107,7 +111,7 @@ app.post('/login', function(req, res) {
 
     }).then(function(data) {
 
-        return res.header('Auth', genrateToken('authentication',email)).json((data));
+        return res.header('Auth', token).json((data));
     }, function(error) {
 
         return res.status(error).send();
@@ -195,7 +199,7 @@ server.timeout = 2500;
  *																																	*
  ************************************************************************************************************************************/
 
-function genrateToken(type,id) {
+function genrateToken(type, id) {
     if (!_.isString(type)) {
         return undefined;
     }
@@ -208,7 +212,7 @@ function genrateToken(type,id) {
         }, 'qwerty12345');
         return token;
     } catch (e) {
-    	console.log(e);
+        console.log(e);
         return undefined;
     }
 }
