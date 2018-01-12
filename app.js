@@ -2,7 +2,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var _ = require('underscore');
 var passwordHash = require('password-hash');
-var mysql = require('mysql');
+var mysql = require('mysql2');
 var validator = require("email-validator");
 var cryptojs = require('crypto-js');
 var jwt = require('jsonwebtoken');
@@ -19,9 +19,9 @@ app.get('/', function(req, res) {
 
 
 /************************************************************************************************************************************
- *																																	*
- *													My sql Connection																*
- *																																	*
+ *                                                                                                                                  *
+ *                                                  My sql Connection                                                               *
+ *                                                                                                                                  *
  ************************************************************************************************************************************/
 
 var con = mysql.createConnection({
@@ -37,9 +37,9 @@ con.connect(function(err) {
 });
 
 /************************************************************************************************************************************
- *																																	*
- *													GET All Users																	*
- *																																	*
+ *                                                                                                                                  *
+ *                                                  GET All Users                                                                   *
+ *                                                                                                                                  *
  ************************************************************************************************************************************/
 
 app.get('/users', function(req, res) {
@@ -60,9 +60,9 @@ app.get('/users', function(req, res) {
 
 
 /************************************************************************************************************************************
- *																																	*
- *													POST user login																	*
- *																																	*
+ *                                                                                                                                  *
+ *                                                  POST user login                                                                 *
+ *                                                                                                                                  *
  ************************************************************************************************************************************/
 
 app.post('/login', function(req, res) {
@@ -81,8 +81,6 @@ app.post('/login', function(req, res) {
         if (body.email.trim().length === 0 || body.password.trim().length === 0 || !validator.validate(body.email.trim())) {
             return res.status(400).send();
         } else {
-
-
 
             con.query('SELECT * FROM users WHERE email = ?', [body.email.trim()], (err, rows) => {
                 if (err) {
@@ -121,14 +119,14 @@ app.post('/login', function(req, res) {
 
 
 /************************************************************************************************************************************
- *																																	*
- *													POST SignUp Users																*
- *																																	*
+ *                                                                                                                                  *
+ *                                                  POST SignUp Users                                                               *
+ *                                                                                                                                  *
  ************************************************************************************************************************************/
 
 app.post('/register', function(req, res) {
     var body = _.pick(req.body, 'email', 'password', 'name', 'city', 'country', 'lon', 'lat');
-    //	var matchedEmail;
+    //  var matchedEmail;
 
 
     _.defaults(body, {
@@ -182,11 +180,113 @@ app.post('/register', function(req, res) {
 
 
 });
+/************************************************************************************************************************************
+ *                                                                                                                                  *
+ *                                                  PUT(Update) Todos Items by Id                                                   *
+ *                                                                                                                                  *
+ ************************************************************************************************************************************/
+// app.put('/update', function(req, res) {
+
+//     var todoId = parseInt(req.params.id, 10);
+//     var matchedTodo = _.findWhere(todos, {
+//         id: todoId
+//     });
+//     var body = _.pick(req.body, 'description', 'completed');
+//     var validAttribute = {};
+
+//     if (!matchedTodo) {
+//         return res.status(404).json({
+//             "error": "No todo item found with id " + todoId
+//         });
+//     }
+//     /************************************checking for completed property************************************/
+//     if (body.hasOwnProperty('password') && _.isBoolean(body.password)) {
+//         validAttribute.completed = body.completed;
+//     } else if (body.hasOwnProperty('completed')) {
+//         return res.status(400).send();
+//     }
+
+//     /************************************checking for description property************************************/
+//     if (body.hasOwnProperty('description') && _.isString(body.description) && body.description.trim().length > 0) {
+//         validAttribute.description = body.description.trim();
+//     } else if (body.hasOwnProperty('description')) {
+//         return res.status(400).send();
+//     }
+
+//     _.extend(matchedTodo, validAttribute);
+//     res.json(matchedTodo);
+// });
+
+
+
+app.put('/update_user_profile', function(req, res) {
+    var body = _.pick(req.body, 'email', 'name', 'city', 'country', 'longitude', 'lat');
+    if (body.email.trim().length === 0 || !validator.validate(body.email.trim())) {
+        return res.status(400).send();
+    }
+    
+    var findEmail = body.email.trim();
+    var  city, country, longitude, lat;
+
+    return new Promise(function(resolve, rej) {
+
+        con.query('SELECT * FROM users WHERE email = ?', [findEmail], (err, rows) => {
+            if (err) throw err;
+            if (rows.length === 0) {
+                return res.status(406).json('No email found');
+            } else {
+                password = rows[0].password;
+                city = rows[0].city;
+                country = rows[0].country;
+                longitude = rows[0].lon;
+                lat = rows[0].lat;
+
+
+                
+                if (body.hasOwnProperty('city') && _.isString(city)) {
+                    city = body.city.trim();
+                }
+                if (body.hasOwnProperty('country') && _.isString(country)) {
+                    country = body.country.trim();
+                }
+                if (body.hasOwnProperty('longitude') && _.isString(longitude)) {
+                    longitude = body.longitude.trim();
+                    console.log('vrvb');
+                }
+                if (body.hasOwnProperty('lat') && _.isString(lat)) {
+                    lat = body.lat.trim();
+                }
+
+
+               
+                body.city = city;
+                body.country = country;
+                body.longitude = longitude;
+                body.lat = lat;
+
+   
+
+                con.query('UPDATE users SET city = ?, country = ?, lon =?, lat = ? WHERE email = ?', [ body.city, body.country, body.longitude, body.lat, findEmail], (err, res) => {
+                    if (err) { throw (err) } else {
+                        resolve();
+                    }
+                });
+            }
+
+        });
+    }).then(function(data) {
+        return res.json(body);
+    }, function(error) {
+        console.log('Reject: ' + error);
+    }).catch(function(errot) {
+        console.log(error);
+    });
+});
 
 /************************************************************************************************************************************
- *																																	*
- *													Starting server																	*
- *																																	*
+ *                                                                                                                                  *
+ *                                                  Starting server                                                                 *
+ *                                                                                                                                  *
  ************************************************************************************************************************************/
 var server = app.listen(PORT, function() {
     console.log('Express listening on port ' + PORT + '!');
@@ -194,9 +294,9 @@ var server = app.listen(PORT, function() {
 server.timeout = 2500;
 
 /************************************************************************************************************************************
- *																																	*
- *													Genrate Token Function															*
- *																																	*
+ *                                                                                                                                  *
+ *                                                  Genrate Token Function                                                          *
+ *                                                                                                                                  *
  ************************************************************************************************************************************/
 
 function genrateToken(type, id) {
@@ -218,7 +318,7 @@ function genrateToken(type, id) {
 }
 
 /************************************************************************************************************************************
- *																																	*
- *														End Of file																	*
- *																																	*
+ *                                                                                                                                  *
+ *                                                      End Of file                                                                 *
+ *                                                                                                                                  *
  ************************************************************************************************************************************/
