@@ -7,7 +7,8 @@ var bodyParser = require('body-parser');
 var cryptojs = require('crypto-js');
 var validator = require("email-validator");
 var express = require('express');
-var basicAuth = require('express-basic-auth')
+var basicAuth = require('express-basic-auth');
+var geolib = require('geolib');
 var jwt = require('jsonwebtoken');
 var _ = require('underscore');
 var mysql = require('mysql');
@@ -104,7 +105,7 @@ app.post('/login', function(req, res) {
                     rej(400);
                 } else {
                     if (passwordHash.verify(body.password.trim(), rows[0].password)) {
-                        token = genrateToken('authentication', rows[0].email)            //genrateToken() function is defined at botton
+                        token = genrateToken('authentication', rows[0].email) //genrateToken() function is defined at botton
                         if (!token) {
                             rej(401);
                         }
@@ -139,8 +140,6 @@ app.post('/login', function(req, res) {
 
 app.post('/register', function(req, res) {
     var body = _.pick(req.body, 'email', 'password', 'name', 'city', 'country', 'lon', 'lat');
-    //  var matchedEmail;
-
 
     _.defaults(body, {
         email: ' ',
@@ -216,42 +215,13 @@ app.put('/update_user_profile', function(req, res) {
                 return res.status(406).json('No email found');
             } else {
 
- _.defaults(body, {
-        name: rows[0].name,
-        city: rows[0].city,
-        country: rows[0].country,
-        lon: rows[0].lon,
-        lat: rows[0].lat
-    });
-
-                // password = rows[0].password;
-                // city = rows[0].city;
-                // country = rows[0].country;
-                // longitude = rows[0].lon;
-                // lat = rows[0].lat;
-
-                // if (body.hasOwnProperty('city') && _.isString(city)) {
-                //     city = body.city.trim();
-                // }
-                // if (body.hasOwnProperty('country') && _.isString(country)) {
-                //     country = body.country.trim();
-                // }
-                // if (body.hasOwnProperty('longitude') && _.isString(longitude)) {
-                //     longitude = body.longitude.trim();
-                //     console.log('vrvb');
-                // }
-                // if (body.hasOwnProperty('lat') && _.isString(lat)) {
-                //     lat = body.lat.trim();
-                // }
-
-
-
-                // body.city = city;
-                // body.country = country;
-                // body.longitude = longitude;
-                // body.lat = lat;
-
-
+                _.defaults(body, {
+                    name: rows[0].name,
+                    city: rows[0].city,
+                    country: rows[0].country,
+                    lon: rows[0].lon,
+                    lat: rows[0].lat
+                });
 
                 con.query('UPDATE users SET name = ?, city = ?, country = ?, lon =?, lat = ? WHERE email = ?', [body.name, body.city, body.country, body.lon, body.lat, findEmail], (err, res) => {
                     if (err) { throw (err) } else {
@@ -268,6 +238,64 @@ app.put('/update_user_profile', function(req, res) {
     }).catch(function(errot) {
         console.log(error);
     });
+});
+
+/************************************************************************************************************************************
+ *                                                                                                                                  *
+ *                                                  Users near by me under x miles                                                  *
+ *                                                                                                                                  *
+ ************************************************************************************************************************************/
+
+app.get('/users_near_by_me', function(req, res) {
+    var queryParams = req.query;
+    var usersEmail = [];
+    var lon, lat;
+    return new Promise(function(resolve, rej) {
+        if (queryParams.hasOwnProperty('email') && queryParams.hasOwnProperty('miles')) {          
+            con.query('SELECT lon,lat FROM users WHERE email = ?', [queryParams.email], (err, row) => {
+                
+                if (err) {
+                    console.log(err);
+                 //   throw err;
+                 rej(err);
+                } else {
+                    lon = row[0].lon;
+                    lat = row[0].lat;
+                    con.query('SELECT email,name,city,country,lon,lat FROM users WHERE email != ?', [queryParams.email], (err, rows) => {
+                        if (err) {
+                            console.log(err);
+                            throw err;
+                        } else {
+
+                            for (var i = 0; i < rows.length; i++) {
+                                if (geolib.isPointInCircle({ latitude: rows[i].lat, longitude: rows[i].lon }, { latitude: lat, longitude: lon },
+                                        5000
+                                    )) {
+                                    usersEmail.push((rows[i]));
+                                }
+                            }
+                            resolve(usersEmail.length);
+                        }
+                    });
+
+                }
+            });
+        } else {
+            rej("Wrong Params");
+            //return res.status(400).send();
+        }
+    }).then(function(data) {
+        console.log(data);
+        if (data === 0) {
+            res.send("No users Found");
+        }
+        res.json(usersEmail);
+
+    }, function(error) {
+        console.log(error);
+        res.status(400).json(error);
+    });
+
 });
 
 /************************************************************************************************************************************
