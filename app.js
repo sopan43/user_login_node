@@ -19,7 +19,7 @@ var passwordHash = require('password-hash');
  *                                                       Miscellaneous                                                              *
  *                                                                                                                                  *
  ************************************************************************************************************************************/
-
+console.log(__dirname);
 var users = [];
 var app = express();
 var PORT = process.env.PORT || 3000;
@@ -31,7 +31,7 @@ app.use(basicAuth({
 }));
 
 app.get('/', function(req, res) {
-    res.send('Users API Root');
+    res.json('Users API Root');
 });
 
 
@@ -251,13 +251,13 @@ app.get('/users_near_by_me', function(req, res) {
     var usersEmail = [];
     var lon, lat;
     return new Promise(function(resolve, rej) {
-        if (queryParams.hasOwnProperty('email') && queryParams.hasOwnProperty('miles')) {          
+        if (queryParams.hasOwnProperty('email') && queryParams.hasOwnProperty('miles')) {
             con.query('SELECT lon,lat FROM users WHERE email = ?', [queryParams.email], (err, row) => {
-                
+
                 if (err) {
                     console.log(err);
-                 //   throw err;
-                 rej(err);
+                    //   throw err;
+                    rej(err);
                 } else {
                     lon = row[0].lon;
                     lat = row[0].lat;
@@ -285,16 +285,59 @@ app.get('/users_near_by_me', function(req, res) {
             //return res.status(400).send();
         }
     }).then(function(data) {
-        console.log(data);
+        //console.log(data);
         if (data === 0) {
-            res.send("No users Found");
+            res.status(404).json("No users Found");
+        } else {
+            res.json(usersEmail);
         }
-        res.json(usersEmail);
 
     }, function(error) {
         console.log(error);
         res.status(400).json(error);
     });
+
+});
+
+/************************************************************************************************************************************
+ *                                                                                                                                  *
+ *                                                  GET Users by City                                                                 *
+ *                                                                                                                                  *
+ ************************************************************************************************************************************/
+
+app.get('/users_city', function(req, res) {
+    var queryParams = req.query;
+    var usersEmail = [];
+
+    return new Promise(function(resolve, rej) {
+            if (queryParams.hasOwnProperty('city')) {
+                console.log("IF");
+                con.query('SELECT email,name FROM users WHERE city = ?', [queryParams.city], (err, rows) => {
+                    if (err) { throw err }
+                    for (var i = 0; i < rows.length; i++) {
+
+                        usersEmail.push((rows[i]));
+
+                    }
+                    resolve(usersEmail.length);
+                });
+            } else {
+                console.log("else");;
+                rej("city not given");
+            }
+        }).then(function(data) {
+            if (data === 0) {
+                res.status(404).json("No users Found");
+            } else {
+                res.json(usersEmail);
+            }
+
+        },
+        function(error) {
+            console.log("vbevtbrrtbbb");
+            console.log(error);
+            res.status(400).json(error);
+        });
 
 });
 
