@@ -8,6 +8,7 @@ var cryptojs = require('crypto-js');
 var validator = require("email-validator");
 var express = require('express');
 var basicAuth = require('express-basic-auth');
+var session = require('express-session');
 var geolib = require('geolib');
 var jwt = require('jsonwebtoken');
 var _ = require('underscore');
@@ -30,53 +31,7 @@ app.use(basicAuth({
     users: { 'admin': 'supersecret' }
 }));
 
-
-var middleWare = function requireAuthentication(req, res, next) {
-
-    var token = req.get('Auth');
-    findByToken(token).then(function(user) {
-        req.user = user;
-        next();
-    }, function(e) {
-        console.log(e);
-        res.status(401).send();
-    });
-}
-
-
-
-
-
-function findByToken(token) {
-    return new Promise(function(resolve, rej) {
-        try {
-
-            console.log(verifyEmail);
-
-            var decodedJWT = jwt.decode(token, 'qwert12345', { algorithms: 'RS256' });
-            var bytes = cryptojs.AES.decrypt(decodedJWT.token, 'abc123@1223');
-            var tokenData = JSON.parse(bytes.toString(cryptojs.enc.Utf8));
-            if(tokenData.id === verifyEmail)
-        {    con.query('SELECT * FROM users WHERE email = ?', [tokenData.id], (err, rows) => {
-                        if (err) { throw err }
-                        if (rows.length > 0)
-                            resolve(rows);
-                        else {
-                            rej();
-                        }
-                    });
-        }else{
-            rej();
-        }
-        } catch (e) {
-            rej(e);
-        }
-    });
-}
-
-
-
-
+app.use(session({ secret: "users@Emilence", resave: true, saveUninitialized: true }));
 
 
 
@@ -138,8 +93,7 @@ app.post('/login', function(req, res) {
         password: ' '
     });
 
-    var email;
-    var token = undefined;
+    //  var email;
 
     return new Promise(function(resolve, rej) {
 
@@ -155,10 +109,6 @@ app.post('/login', function(req, res) {
                     rej(400);
                 } else {
                     if (passwordHash.verify(body.password.trim(), rows[0].password)) {
-                        token = genrateToken('Authentication', rows[0].email) //genrateToken() function is defined at botton
-                        if (!token) {
-                            rej(401);
-                        }
                         resolve((rows));
                     } else if (!passwordHash.verify(body.password.trim(), rows[0].password)) {
                         rej(401);
@@ -172,8 +122,14 @@ app.post('/login', function(req, res) {
         }
 
     }).then(function(data) {
-
-        return res.header('Auth', token).json((data));
+        req.session.user_login = true;
+        req.session.user_email = data[0].email;
+        req.session.user_name = data[0].name;
+        req.session.user_city = data[0].city;
+        req.session.user_country = data[0].country;
+        req.session.user_lon = data[0].lon;
+        req.session.user_lat = data[0].lat;
+        return res.status(200).json((data));
 
     }, function(error) {
 
@@ -232,8 +188,6 @@ app.post('/register', function(req, res) {
 
         });
     }).then(function(data) {
-
-
         return res.json(body);
     }, function(error) {
         console.log('Reject: ' + error);
@@ -249,28 +203,24 @@ app.post('/register', function(req, res) {
  *                                                                                                                                  *
  ************************************************************************************************************************************/
 
-app.put('/update_user_profile', middleWare, function(req, res) {
-    var body = _.pick(req.body, 'email', 'name', 'city', 'country', 'lon', 'lat');
-    if (body.email.trim().length === 0 || !validator.validate(body.email.trim())) {
-        return res.status(400).send();
-    }
-    
-
-
-    // var token1 = req.get('Auth');
-    // console.log(token1);
-
-
-
-    var findEmail = body.email.trim();
-    var city, country, longitude, lat;
-
+app.put('/update_user_profile', function(req, res) {
     return new Promise(function(resolve, rej) {
+        if (!req.session.user_login) {
+            return rej(401);
+        }
 
-        con.query('SELECT * FROM users WHERE email = ?', [findEmail], (err, rows) => {
+        var body = _.pick(req.body, 'name', 'city', 'country', 'lon', 'lat');
+
+
+        body.email = req.session.user_email;
+        var city, country, longitude, lat;
+
+
+
+        con.query('SELECT * FROM users WHERE email = ?', [body.email], (err, rows) => {
             if (err) throw err;
             if (rows.length === 0) {
-                return res.status(406).json('No email found');
+                rej(404);
             } else {
 
                 _.defaults(body, {
@@ -280,20 +230,31 @@ app.put('/update_user_profile', middleWare, function(req, res) {
                     lon: rows[0].lon,
                     lat: rows[0].lat
                 });
-
-                con.query('UPDATE users SET name = ?, city = ?, country = ?, lon =?, lat = ? WHERE email = ?', [body.name, body.city, body.country, body.lon, body.lat, findEmail], (err, res) => {
+                if (body.name.trim().length === 0 || body.city.trim().length === 0 || body.country.trim().length === 0 || body.lon.trim().length === 0 || body.lat.trim().length === 0) {
+                    rej(400);
+                    console.log(body.name);
+                } //else {
+                console.log(body.name);
+                con.query('UPDATE users SET name = ?, city = ?, country = ?, lon =?, lat = ? WHERE email = ?', [body.name, body.city, body.country, body.lon, body.lat, body.email], (err, res) => {
                     if (err) { throw (err) } else {
-                        resolve();
+                        req.session.user_name = body.name;
+                        req.session.user_city = body.city;
+                        req.session.user_country = body.country;
+                        req.session.user_lon = body.lon;
+                        req.session.user_lat = body.lat;
+                        console.log(body.name);
+                        resolve(body);
                     }
                 });
+                // }
             }
 
         });
     }).then(function(data) {
-        return res.json(body);
+        return res.json(data);
     }, function(error) {
-        console.log('Reject: ' + error);
-    }).catch(function(errot) {
+        return res.status((error)).send();
+    }).catch(function(error) {
         console.log(error);
     });
 });
@@ -340,14 +301,14 @@ app.get('/users_near_by_me', function(req, res) {
             });
         } else {
             rej("Wrong Params");
-            //return res.status(400).send();
+
         }
     }).then(function(data) {
-        //console.log(data);
+
         if (data === 0) {
-            res.status(404).json("No users Found");
+            return res.status(404).json("No users Found");
         } else {
-            res.json(usersEmail);
+            return res.json(usersEmail);
         }
 
     }, function(error) {
@@ -400,6 +361,20 @@ app.get('/users_city', function(req, res) {
 
 /************************************************************************************************************************************
  *                                                                                                                                  *
+ *                                                  GET Users Logout                                                                 *
+ *                                                                                                                                  *
+ ************************************************************************************************************************************/
+app.get('/logout', function(req, res) {
+    if (!req.session.user_login) {
+        return res.status(401).send();
+    } else {
+        req.session.destroy();
+        return res.status(200).send();
+    }
+});
+
+/************************************************************************************************************************************
+ *                                                                                                                                  *
  *                                                  Starting server                                                                 *
  *                                                                                                                                  *
  ************************************************************************************************************************************/
@@ -407,33 +382,6 @@ var server = app.listen(PORT, function() {
     console.log('Express listening on port ' + PORT + '!');
 });
 server.timeout = 2500;
-
-/************************************************************************************************************************************
- *                                                                                                                                  *
- *                                                  Genrate Token Function                                                          *
- *                                                                                                                                  *
- ************************************************************************************************************************************/
-
-function genrateToken(type, id) {
-    var token;
-    if (!_.isString(type)) {
-        return undefined;
-    }
-    //  console.log(id);
-    try {
-        verifyEmail = id;
-        var stringData = JSON.stringify({ id: id, type: type });
-        var encryptedData = cryptojs.AES.encrypt(stringData, 'abc123@1223').toString();
-        token = jwt.sign({
-            token: encryptedData
-        }, 'qwerty12345');
-
-        return token;
-    } catch (e) {
-        console.log(e);
-        return undefined;
-    }
-}
 
 /************************************************************************************************************************************
  *                                                                                                                                  *
