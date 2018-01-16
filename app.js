@@ -19,16 +19,67 @@ var passwordHash = require('password-hash');
  *                                                       Miscellaneous                                                              *
  *                                                                                                                                  *
  ************************************************************************************************************************************/
-console.log(__dirname);
-var users = [];
+
+
 var app = express();
 var PORT = process.env.PORT || 3000;
-
+var verifyEmail = 'nfwf';
 app.use(bodyParser.json());
 
 app.use(basicAuth({
     users: { 'admin': 'supersecret' }
 }));
+
+
+var middleWare = function requireAuthentication(req, res, next) {
+
+    var token = req.get('Auth');
+    findByToken(token).then(function(user) {
+        req.user = user;
+        next();
+    }, function(e) {
+        console.log(e);
+        res.status(401).send();
+    });
+}
+
+
+
+
+
+function findByToken(token) {
+    return new Promise(function(resolve, rej) {
+        try {
+
+            console.log(verifyEmail);
+
+            var decodedJWT = jwt.decode(token, 'qwert12345', { algorithms: 'RS256' });
+            var bytes = cryptojs.AES.decrypt(decodedJWT.token, 'abc123@1223');
+            var tokenData = JSON.parse(bytes.toString(cryptojs.enc.Utf8));
+            if(tokenData.id === verifyEmail)
+        {    con.query('SELECT * FROM users WHERE email = ?', [tokenData.id], (err, rows) => {
+                        if (err) { throw err }
+                        if (rows.length > 0)
+                            resolve(rows);
+                        else {
+                            rej();
+                        }
+                    });
+        }else{
+            rej();
+        }
+        } catch (e) {
+            rej(e);
+        }
+    });
+}
+
+
+
+
+
+
+
 
 app.get('/', function(req, res) {
     res.json('Users API Root');
@@ -99,13 +150,12 @@ app.post('/login', function(req, res) {
             con.query('SELECT * FROM users WHERE email = ?', [body.email.trim()], (err, rows) => {
                 if (err) {
                     rej(400);
-                } //throw err;
-
+                }
                 if (rows.length === 0) {
                     rej(400);
                 } else {
                     if (passwordHash.verify(body.password.trim(), rows[0].password)) {
-                        token = genrateToken('authentication', rows[0].email) //genrateToken() function is defined at botton
+                        token = genrateToken('Authentication', rows[0].email) //genrateToken() function is defined at botton
                         if (!token) {
                             rej(401);
                         }
@@ -124,6 +174,7 @@ app.post('/login', function(req, res) {
     }).then(function(data) {
 
         return res.header('Auth', token).json((data));
+
     }, function(error) {
 
         return res.status(error).send();
@@ -198,11 +249,18 @@ app.post('/register', function(req, res) {
  *                                                                                                                                  *
  ************************************************************************************************************************************/
 
-app.put('/update_user_profile', function(req, res) {
+app.put('/update_user_profile', middleWare, function(req, res) {
     var body = _.pick(req.body, 'email', 'name', 'city', 'country', 'lon', 'lat');
     if (body.email.trim().length === 0 || !validator.validate(body.email.trim())) {
         return res.status(400).send();
     }
+    
+
+
+    // var token1 = req.get('Auth');
+    // console.log(token1);
+
+
 
     var findEmail = body.email.trim();
     var city, country, longitude, lat;
@@ -310,22 +368,21 @@ app.get('/users_city', function(req, res) {
     var usersEmail = [];
 
     return new Promise(function(resolve, rej) {
-            if (queryParams.hasOwnProperty('city')) {
-                console.log("IF");
-                con.query('SELECT email,name FROM users WHERE city = ?', [queryParams.city], (err, rows) => {
-                    if (err) { throw err }
-                    for (var i = 0; i < rows.length; i++) {
+        if (queryParams.hasOwnProperty('city')) {
+            con.query('SELECT email,name FROM users WHERE city = ?', [queryParams.city], (err, rows) => {
+                if (err) { throw err }
+                for (var i = 0; i < rows.length; i++) {
 
-                        usersEmail.push((rows[i]));
+                    usersEmail.push((rows[i]));
 
-                    }
-                    resolve(usersEmail.length);
-                });
-            } else {
-                console.log("else");;
-                rej("city not given");
-            }
-        }).then(function(data) {
+                }
+                resolve(usersEmail.length);
+            });
+        } else {
+
+            rej("city not given");
+        }
+    }).then(function(data) {
             if (data === 0) {
                 res.status(404).json("No users Found");
             } else {
@@ -334,7 +391,7 @@ app.get('/users_city', function(req, res) {
 
         },
         function(error) {
-            console.log("vbevtbrrtbbb");
+
             console.log(error);
             res.status(400).json(error);
         });
@@ -358,16 +415,19 @@ server.timeout = 2500;
  ************************************************************************************************************************************/
 
 function genrateToken(type, id) {
+    var token;
     if (!_.isString(type)) {
         return undefined;
     }
-
+    //  console.log(id);
     try {
+        verifyEmail = id;
         var stringData = JSON.stringify({ id: id, type: type });
         var encryptedData = cryptojs.AES.encrypt(stringData, 'abc123@1223').toString();
-        var token = jwt.sign({
+        token = jwt.sign({
             token: encryptedData
         }, 'qwerty12345');
+
         return token;
     } catch (e) {
         console.log(e);
