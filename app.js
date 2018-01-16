@@ -92,50 +92,54 @@ app.post('/login', function(req, res) {
         email: ' ',
         password: ' '
     });
+    if (req.session.user_login === undefined) {
 
-    //  var email;
 
-    return new Promise(function(resolve, rej) {
+        return new Promise(function(resolve, rej) {
 
-        if (body.email.trim().length === 0 || body.password.trim().length === 0 || !validator.validate(body.email.trim())) {
-            return res.status(400).send();
-        } else {
+            if (body.email.trim().length === 0 || body.password.trim().length === 0 || !validator.validate(body.email.trim())) {
+                return res.status(400).send();
+            } else {
 
-            con.query('SELECT * FROM users WHERE email = ?', [body.email.trim()], (err, rows) => {
-                if (err) {
-                    rej(400);
-                }
-                if (rows.length === 0) {
-                    rej(400);
-                } else {
-                    if (passwordHash.verify(body.password.trim(), rows[0].password)) {
-                        resolve((rows));
-                    } else if (!passwordHash.verify(body.password.trim(), rows[0].password)) {
-                        rej(401);
-                    } else {
-                        rej(404);
+                con.query('SELECT * FROM users WHERE email = ?', [body.email.trim()], (err, rows) => {
+                    if (err) {
+                        rej(400);
                     }
-                }
+                    if (rows.length === 0) {
+                        rej(400);
+                    } else {
+                        if (passwordHash.verify(body.password.trim(), rows[0].password)) {
+                            resolve((rows));
+                        } else if (!passwordHash.verify(body.password.trim(), rows[0].password)) {
+                            rej(401);
+                        } else {
+                            rej(404);
+                        }
+                    }
 
-            });
+                });
 
-        }
+            }
 
-    }).then(function(data) {
-        req.session.user_login = true;
-        req.session.user_email = data[0].email;
-        req.session.user_name = data[0].name;
-        req.session.user_city = data[0].city;
-        req.session.user_country = data[0].country;
-        req.session.user_lon = data[0].lon;
-        req.session.user_lat = data[0].lat;
-        return res.status(200).json((data));
+        }).then(function(data) {
+            req.session.user_login = true;
+            req.session.user_email = data[0].email;
+            req.session.user_name = data[0].name;
+            req.session.user_password = data[0].password;
+            req.session.user_city = data[0].city;
+            req.session.user_country = data[0].country;
+            req.session.user_lon = data[0].lon;
+            req.session.user_lat = data[0].lat;
+            return res.status(200).json((data));
 
-    }, function(error) {
+        }, function(error) {
 
-        return res.status(error).send();
-    });
-
+            return res.status(error).send();
+        });
+    } else {
+        req.session.destroy();
+        return res.json('Previos user logout need to login again');
+    }
 });
 
 
@@ -232,9 +236,9 @@ app.put('/update_user_profile', function(req, res) {
                 });
                 if (body.name.trim().length === 0 || body.city.trim().length === 0 || body.country.trim().length === 0 || body.lon.trim().length === 0 || body.lat.trim().length === 0) {
                     rej(400);
-                    console.log(body.name);
-                } //else {
-                console.log(body.name);
+                   
+                }
+
                 con.query('UPDATE users SET name = ?, city = ?, country = ?, lon =?, lat = ? WHERE email = ?', [body.name, body.city, body.country, body.lon, body.lat, body.email], (err, res) => {
                     if (err) { throw (err) } else {
                         req.session.user_name = body.name;
@@ -242,13 +246,10 @@ app.put('/update_user_profile', function(req, res) {
                         req.session.user_country = body.country;
                         req.session.user_lon = body.lon;
                         req.session.user_lat = body.lat;
-                        console.log(body.name);
                         resolve(body);
                     }
                 });
-                // }
             }
-
         });
     }).then(function(data) {
         return res.json(data);
@@ -358,10 +359,56 @@ app.get('/users_city', function(req, res) {
         });
 
 });
+/************************************************************************************************************************************
+ *                                                                                                                                  *
+ *                                                  PUT Change Password                                                                *
+ *                                                                                                                                  *
+ ************************************************************************************************************************************/
+app.put('/change_password', function(req, res) {
+    return new Promise(function(resolve, rej) {
+        if (!req.session.user_login) {
+            return rej(401);
+        }
+
+        var body = _.pick(req.body, 'current_password', 'new_password', 'confirm_password');
+        _.defaults(body, {
+            confirm_password: '  ',
+            current_password: ' ',
+            new_password: ' '
+        });
+        if (body.current_password.trim().length === 0 || body.new_password.trim().length === 0 || body.confirm_password.trim().length === 0) {
+            rej(400);
+        }
+        body.email = req.session.user_email;
+        if (!passwordHash.verify(body.current_password.trim(), req.session.user_password)) {
+            rej(403);
+        } else if (body.new_password !== body.confirm_password) {
+            rej(406);
+        } else {
+            var hashedPassword = passwordHash.generate(body.new_password.trim());
+            con.query('UPDATE users SET password = ? WHERE email = ?', [hashedPassword, req.session.user_email], (err, res) => {
+                if (err) { throw (err) } else {
+                    req.session.user_password = hashedPassword;
+                    resolve(200);
+                }
+            });
+        }
+
+    }).then(function(data) {
+        return res.status(data).send();
+    }, function(error) {
+        return res.status(error).send();
+    }).catch(function(error) {
+        console.log(error);
+    });
+
+});
+
+
 
 /************************************************************************************************************************************
  *                                                                                                                                  *
- *                                                  GET Users Logout                                                                 *
+ *                                                  GET Users Logout                                                                *
  *                                                                                                                                  *
  ************************************************************************************************************************************/
 app.get('/logout', function(req, res) {
