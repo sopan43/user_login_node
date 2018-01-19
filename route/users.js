@@ -14,52 +14,14 @@ var jwt = require('jsonwebtoken');
 var _ = require('underscore');
 var mysql = require('mysql');
 var passwordHash = require('password-hash');
-
-/************************************************************************************************************************************
- *                                                                                                                                  *
- *                                                       Miscellaneous                                                              *
- *                                                                                                                                  *
- ************************************************************************************************************************************/
-
-
+var con = require('../config/connection')
 var app = express();
-var PORT = process.env.PORT || 3000;
-var verifyEmail = 'nfwf';
-app.use(bodyParser.json());
+
+
 
 app.use(basicAuth({
     users: { 'admin': 'supersecret' }
 }));
-
-app.use(session({ secret: "users@Emilence", resave: true, saveUninitialized: true }));
-
-
-
-
-app.get('/', function(req, res) {
-    res.json('Users API Root');
-});
-
-
-
-
-/************************************************************************************************************************************
- *                                                                                                                                  *
- *                                                  My sql Connection                                                               *
- *                                                                                                                                  *
- ************************************************************************************************************************************/
-
-var con = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "root123",
-    database: "Users"
-});
-
-con.connect(function(err) {
-    if (err) throw err;
-    console.log("Connected!");
-});
 
 /************************************************************************************************************************************
  *                                                                                                                                  *
@@ -113,6 +75,7 @@ app.post('/login', function(req, res) {
                         if (passwordHash.verify(body.password.trim(), rows[0].password)) {
                             resolve((rows));
                         } else if (!passwordHash.verify(body.password.trim(), rows[0].password)) {
+                           // console.log("14545");
                             rej(401);
                         } else {
                             rej(404);
@@ -363,47 +326,11 @@ app.get('/users_city', function(req, res) {
 });
 /************************************************************************************************************************************
  *                                                                                                                                  *
- *                                                  PUT Change Password                                                                *
+ *                                                  PUT Change Password                                                             *
  *                                                                                                                                  *
  ************************************************************************************************************************************/
 app.put('/change_password', function(req, res) {
-    return new Promise(function(resolve, rej) {
-        if (!req.session.user_login) {
-            return rej(401);
-        }
-
-        var body = _.pick(req.body, 'current_password', 'new_password', 'confirm_password');
-        _.defaults(body, {
-            confirm_password: '  ',
-            current_password: ' ',
-            new_password: ' '
-        });
-        if (body.current_password.trim().length === 0 || body.new_password.trim().length === 0 || body.confirm_password.trim().length === 0) {
-            rej(400);
-        }
-        body.email = req.session.user_email;
-        if (!passwordHash.verify(body.current_password.trim(), req.session.user_password)) {
-            rej(403);
-        } else if (body.new_password !== body.confirm_password) {
-            rej(406);
-        } else {
-            var hashedPassword = passwordHash.generate(body.new_password.trim());
-            con.query('UPDATE users SET password = ? WHERE email = ?', [hashedPassword, req.session.user_email], (err, res) => {
-                if (err) { throw (err) } else {
-                    req.session.user_password = hashedPassword;
-                    resolve(200);
-                }
-            });
-        }
-
-    }).then(function(data) {
-        return res.status(data).send();
-    }, function(error) {
-        return res.status(error).send();
-    }).catch(function(error) {
-        console.log(error);
-    });
-
+    
 });
 
 
@@ -421,19 +348,9 @@ app.get('/logout', function(req, res) {
         return res.status(200).send();
     }
 });
-
-/************************************************************************************************************************************
- *                                                                                                                                  *
- *                                                  Starting server                                                                 *
- *                                                                                                                                  *
- ************************************************************************************************************************************/
-var server = app.listen(PORT, function() {
-    console.log('Express listening on port ' + PORT + '!');
-});
-server.timeout = 2500;
-
 /************************************************************************************************************************************
  *                                                                                                                                  *
  *                                                      End Of file                                                                 *
  *                                                                                                                                  *
  ************************************************************************************************************************************/
+module.exports = app;
