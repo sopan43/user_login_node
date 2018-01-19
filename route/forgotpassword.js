@@ -39,7 +39,7 @@ app.post('/forgot', function(req, res) {
             pass: "emilence"
         }
     });
-    var url = `http://localhost:3000/password/reset/${token}/`;
+    var url = `${req.headers.host}password/reset/${token}/`;
     var mailOptions = {
         to: email,
         from: 'test.emilence@gmail.com',
