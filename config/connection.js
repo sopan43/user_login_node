@@ -3,8 +3,8 @@ var connection = mysql.createConnection({
     // Properties.....
     host     : 'localhost',
     user     : 'root',
-    password : 'root123',
-    database : 'Emilence2016'
+    password : 'Emilence',
+    database : 'traineedata'
 });
 
 // create mysql connection---------------------------------------------
