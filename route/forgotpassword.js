@@ -23,6 +23,7 @@ function genrateToken(email) {
 
 }
 
+
 app.get('/', function(req, res) {
     res.json('done');
 })
@@ -37,7 +38,11 @@ app.post('/forgot', function(req, res) {
         if (rows.length === 0) {
             res.json('Email Don\'t exist');
         } else {
+
+
             var token = genrateToken(email);
+
+            var url = `http://${req.headers.host}/sm/password/reset/${token}/`;
 
             var smtpTransport = nodemailer.createTransport({
                 service: "Gmail",
@@ -46,12 +51,13 @@ app.post('/forgot', function(req, res) {
                     pass: "emilence"
                 }
             });
+
             var url = `http://${req.headers.host}/sm/password/reset/${token}/`;
             var mailOptions = {
                 to: email,
                 from: 'test.emilence@gmail.com',
-                subject: 'reset password',
-                text: 'click on the link to reset password \n' + url
+                subject: 'Feedback',
+                text: "Click on the link to reset password \n" + url
 
 
             };
@@ -59,6 +65,7 @@ app.post('/forgot', function(req, res) {
 
             smtpTransport.sendMail(mailOptions, function(err) {
                 if (err) {
+                    console.log('ERROR: ' +err);
                     return res.json({ success: 0, message: "error occured while sending mail", error: err });
                 } else {
                     res.json({ success: 1, message: "Feedback saved Successfully" });
@@ -66,13 +73,11 @@ app.post('/forgot', function(req, res) {
                 }
             });
 
-            return res.status(200).send();
-
         }
+
+
     });
-
 });
-
 
 app.get('/reset/:token', function(req, res) {
     var token = req.params.token;
