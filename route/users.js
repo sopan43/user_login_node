@@ -15,13 +15,28 @@ var _ = require('underscore');
 var mysql = require('mysql');
 var passwordHash = require('password-hash');
 var con = require('../config/connection')
+var multer = require('multer');
 var app = express();
 
+var storage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        //cb(null, '/var/www/html/scrap/uploads')
+        cb(null, './uploads')
+    },
+    filename: function(req, file, cb) {
+        cb(null, 'scrap_blog_image' + Date.now() + file.originalname);
+
+    }
+});
+var upload = multer({ storage: storage });
+
+var cpUpload = upload.fields([{ name: 'profilePic', maxCount: 1 }]);
 
 
-app.use(basicAuth({
-    users: { 'admin': 'supersecret' }
-}));
+
+// app.use(basicAuth({
+//     users: { 'admin': 'supersecret' }
+// }));
 
 /************************************************************************************************************************************
  *                                                                                                                                  *
@@ -31,19 +46,18 @@ app.use(basicAuth({
 
 app.get('/users', function(req, res) {
     if (!req.session.user_login) {
-            res.status(401).send();
-        }
-else{
-    var usersEmail = [];
+        res.status(401).send();
+    } else {
+        var usersEmail = [];
 
-    con.query('SELECT user_email,user_name FROM user', (err, rows) => {
-        if (err) throw err;
+        con.query('SELECT user_email,user_name FROM user', (err, rows) => {
+            if (err) throw err;
 
-        usersEmail = (rows);
+            usersEmail = (rows);
 
-        res.json(usersEmail);
-    });
-}
+            res.json(usersEmail);
+        });
+    }
 });
 
 /************************************************************************************************************************************
@@ -115,9 +129,28 @@ app.post('/login', function(req, res) {
  *                                                  POST SignUp Users                                                               *
  *                                                                                                                                  *
  ************************************************************************************************************************************/
-
-app.post('/register', function(req, res) {
+var upload_s = upload.fields([{ name: 'profile_pic' }]);
+app.post('/register', upload_s, function(req, res) {
     var body = _.pick(req.body, 'email', 'password', 'name', 'city', 'country', 'lon', 'lat');
+    var profile_pic;
+
+console.log(req.body.email);
+
+    // console.log(req.files);
+    // process.exit();
+
+    // var blogImage1 = '';
+    // if (req.files.blog_image1) {
+    //     blogImage1 = req.files.blog_image1[0].filename;
+    // } else {
+    //     blogImage1 = '';
+    // }
+
+    if (req.files.profile_pic) {
+        profile_pic = req.files.profile_pic[0].filename;
+    } else {
+        profile_pic = '';
+    }
 
     _.defaults(body, {
         email: ' ',
@@ -150,7 +183,7 @@ app.post('/register', function(req, res) {
             } else {
 
 
-                con.query('INSERT INTO user SET user_email = ?, user_name = ?, user_password = ?, user_city = ?, user_country = ?, user_latitude = ?, user_longitude = ?', [body.email.trim(), body.name.trim(), hashedPassword, body.city, body.country, body.lat, body.lon], (err, res) => {
+                con.query('INSERT INTO user SET user_email = ?, user_name = ?, user_password = ?, user_city = ?, user_country = ?, user_latitude = ?, user_longitude = ?, profile_pic = ?', [body.email.trim(), body.name.trim(), hashedPassword, body.city, body.country, body.lat, body.lon, profile_pic], (err, res) => {
                     if (err) { throw (err) } else {
                         resolve();
                     }

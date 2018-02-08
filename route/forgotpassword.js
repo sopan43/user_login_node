@@ -36,7 +36,7 @@ app.post('/forgot', function(req, res) {
     con.query('SELECT * FROM user WHERE user_email = ?', [email], (err, rows) => {
         if (err) { throw (err) }
         if (rows.length === 0) {
-            res.json('Email Don\'t exist');
+           return res.json('Email Don\'t exist');
         } else {
 
 
@@ -46,6 +46,7 @@ app.post('/forgot', function(req, res) {
 
             var smtpTransport = nodemailer.createTransport({
                 service: "Gmail",
+                host: "smtp.gmail.com",
                 auth: {
                     user: "test.emilence@gmail.com",
                     pass: "emilence"
@@ -56,7 +57,7 @@ app.post('/forgot', function(req, res) {
             var mailOptions = {
                 to: email,
                 from: 'test.emilence@gmail.com',
-                subject: 'Feedback',
+                subject: 'Reset Password',
                 text: "Click on the link to reset password \n" + url
 
 
@@ -68,7 +69,7 @@ app.post('/forgot', function(req, res) {
                     console.log('ERROR: ' +err);
                     return res.json({ success: 0, message: "error occured while sending mail", error: err });
                 } else {
-                    res.json({ success: 1, message: "Feedback saved Successfully" });
+                  return  res.json({ success: 1, message: "Feedback saved Successfully" });
 
                 }
             });

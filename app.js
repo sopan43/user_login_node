@@ -34,8 +34,8 @@ app.use(express.static(__dirname + '/../') );
 
 app.use(session({ secret: "users@Emilence", resave: true, saveUninitialized: true }));
 
-app.use('/v1/user',user);
-app.use('/v1/password',forgotpassword);
+app.use('/sm/user',user);
+app.use('/sm/password',forgotpassword);
 
 app.get('/', function(req, res) {
     res.json('Users API Root');
